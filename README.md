@@ -125,10 +125,6 @@ Built by a Data Engineer passionate about building useful healthcare tools and s
 
 ## 📬 Contact
 
-Feel free to reach out via [Upwork](#), [LinkedIn](#), or [email](mailto:your@email.com) if you’d like a similar solution built for your business.
+Feel free to reach out via [Upwork](https://www.upwork.com/freelancers/~018057852a30b567fe?mp_source=share), [LinkedIn](https://www.linkedin.com/in/gopinath-sekar/), or [email](mailto:admin@thearchive.dev) if you’d like a similar solution built for your business.
 
 ```
-
----
-
-Want help generating the actual **ETL scripts**, **SQL DDLs**, or even a sample **Airflow DAG** to go with this README?
