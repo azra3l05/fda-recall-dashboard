@@ -30,8 +30,6 @@ An end-to-end data engineering and analytics solution for real-time pharmaceutic
 graph TD;
     API[OpenFDA Recall API]
     Airflow[Airflow DAG Scheduler] --> API
-    Airflow[Airflow DAG Scheduler] --> fetch
-    Airflow[Airflow DAG Scheduler] --> Postgres
     API --> fetch[Python ETL Script]
     fetch --> Postgres[(PostgreSQL DB)]
     Postgres --> Superset[Superset BI Dashboard]
