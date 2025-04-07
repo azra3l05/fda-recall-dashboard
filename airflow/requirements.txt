@@ -1,0 +1,15 @@
+# Core Airflow version
+apache-airflow==2.8.1
+
+# Required provider packages
+apache-airflow-providers-postgres
+apache-airflow-providers-http
+apache-airflow-providers-docker
+
+# Python data handling
+pandas
+requests
+
+# Optional: For parsing dates and environment configs
+python-dotenv
+pendulum

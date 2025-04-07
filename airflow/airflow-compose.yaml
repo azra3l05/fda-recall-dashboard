@@ -1,0 +1,38 @@
+services:
+  airflow:
+    restart: unless-stopped 
+    container_name: airflow 
+    image: apache/airflow:2.8.1-python3.11
+    hostname: airflow
+    environment: 
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://azra3l:Re%40p3r1802%401002@postgres:5432/fda_recall_db
+      - AIRFLOW__CORE__FERNET_KEY=3oz6SvO8Qfx0_7V1kblMnvxZ67IuG6IXsZLwP6SH3sM=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+    networks: 
+      - saltbox
+    labels:
+      com.github.saltbox.saltbox_managed: true 
+      traefik.enable: true 
+      traefik.http.routers.airflow-http.entrypoints: web 
+      traefik.http.routers.airflow-http.middlewares: globalHeaders@file,redirect-to-https@docker,robotHeaders@file,cloudflarewarp@docker,authelia@docker 
+      traefik.http.routers.airflow-http.rule: Host(`airflow.tardisonline.in`) 
+      traefik.http.routers.airflow-http.service: airflow 
+      traefik.http.routers.airflow.entrypoints: websecure 
+      traefik.http.routers.airflow.middlewares: globalHeaders@file,secureHeaders@file,robotHeaders@file,cloudflarewarp@docker,authelia@docker 
+      traefik.http.routers.airflow.rule: Host(`airflow.tardisonline.in`) 
+      traefik.http.routers.airflow.service: airflow 
+      traefik.http.routers.airflow.tls.certresolver: cfdns 
+      traefik.http.routers.airflow.tls.options: securetls@file 
+      traefik.http.services.airflow.loadbalancer.server.port: 8080 
+    volumes: 
+      - /opt/airflow:/opt/airflow
+      - /etc/localtime:/etc/localtime:ro
+    command: webserver
+
+networks: 
+  saltbox:
+    external: true

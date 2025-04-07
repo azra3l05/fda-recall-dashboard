@@ -1,0 +1,36 @@
+services:
+  superset:
+    restart: unless-stopped
+    container_name: superset
+    image: apache/superset:latest
+    hostname: superset
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - SUPERSET_DATABASE_URI=postgresql+psycopg2://azra3l:Re%40p3r1802%401002@postgres:5432/fda_recall_db
+      - SECRET_KEY=xHsDgBfzLFfduLFFH9Nv6sZbFKQ-tTLuZqQguJDtIwraPbP37cb3ADZIf-qULe-jojLIhkHuq2Oult8gmFWbUg
+    networks:
+      - saltbox
+    labels:
+      com.github.saltbox.saltbox_managed: true
+      traefik.enable: true
+      traefik.http.routers.superset-http.entrypoints: web
+      traefik.http.routers.superset-http.middlewares: globalHeaders@file,redirect-to-https@docker,robotHeaders@file,cloudflarewarp@docker,authelia@docker
+      traefik.http.routers.superset-http.rule: Host(`superset.tardisonline.in`)
+      traefik.http.routers.superset-http.service: superset
+      traefik.http.routers.superset.entrypoints: websecure
+      traefik.http.routers.superset.middlewares: globalHeaders@file,secureHeaders@file,robotHeaders@file,cloudflarewarp@docker,authelia@docker
+      traefik.http.routers.superset.rule: Host(`superset.tardisonline.in`)
+      traefik.http.routers.superset.service: superset
+      traefik.http.routers.superset.tls.certresolver: cfdns
+      traefik.http.routers.superset.tls.options: securetls@file
+      traefik.http.services.superset.loadbalancer.server.port: 8088
+    volumes:
+      - /opt/superset:/CONFIG
+      - /etc/localtime:/etc/localtime:ro
+      - /opt/superset/superset_config.py:/app/pythonpath/superset_config.py
+
+networks:
+  saltbox:
+    external: true

@@ -1,24 +1,26 @@
-# 🧪 Pharmaceutical Recall Tracker + FDA Dashboard
+# 💊 Pharmaceutical Recall Tracker + Superset Dashboard (Modernized Deployment)
 
-A complete end-to-end data engineering and BI dashboard project that fetches real-time pharmaceutical recall data from the FDA, processes and stores it in Snowflake, and visualizes insights using Tableau. Built to support healthcare manufacturers and analysts with daily insights on recall patterns, product issues, and trends.
+An end-to-end data engineering and analytics solution for real-time pharmaceutical recall tracking. This version enhances the stack with **Apache Superset** (deployed via Docker, Traefik, and Authelia) for self-hosted BI, while continuing to fetch recall data from the [OpenFDA API](https://open.fda.gov/apis/drug/drug-enforcement/), store and transform it in **PostgreSQL**, and automate orchestration using **Airflow**.
 
 ---
 
 ## 🔍 Features
 
-- ✅ **Automated Data Ingestion** from [OpenFDA Recall API](https://open.fda.gov/apis/drug/drug-enforcement/)
-- ❄️ **Snowflake Data Warehouse** setup with dynamic schema for staging and production
-- ⚙️ **Airflow DAGs** for daily ETL orchestration and quality checks
-- 📊 **Interactive Tableau Dashboard** with parameterized filtering (e.g., date, recall type, manufacturer)
-- 🛠️ **Incident Detection & Scoring Module** for recall frequency tracking
-- 🔐 Integrated with **AWS Secrets Manager** for secure credential handling
+- ✅ Real-time data ingestion from OpenFDA Recall API
+- ⚙️ Airflow DAGs for orchestration, quality checks, and scoring
+- 📊 Modern self-hosted **Superset Dashboard** (Dockerized)
+- 🌐 Secured with **Traefik**, **Authelia SSO**, and HTTPS via Let's Encrypt
+- 🧠 Incident Detection & Scoring for recall anomalies
+- 🔐 AWS Secrets Manager for secure credential management
+- 🐘 External PostgreSQL used as Superset's metadata DB
+- 🐳 Fully containerized using **Docker Compose**
 
 ---
 
-## 📈 Demo
+## 📈 Demo Preview
 
-> 🔗 [Demo Tableau Dashboard Preview](#) *(Link to Tableau Public or a hosted screenshot preview)*  
-> 📸 *![Dashboard Screenshot](screenshots/fda-dashboard-preview.png)*
+> 🔗 [Live Superset Dashboard](https://superset.tardisonline.in)
+> 📸 ![Dashboard Screenshot](screenshots/fda-dashboard-preview.png)
 
 ---
 
@@ -27,29 +29,45 @@ A complete end-to-end data engineering and BI dashboard project that fetches rea
 ```mermaid
 graph TD;
     API[OpenFDA Recall API]
-    API --> PythonETL[Python ETL Script]
-    PythonETL --> Snowflake[Snowflake Staging & Final Tables]
-    Snowflake --> AirflowScheduler[Airflow DAG]
-    Snowflake --> Tableau[Tableau Dashboard]
+    API --> fetch[Python ETL Script]
+    fetch --> Postgres[(PostgreSQL DB)]
+    Postgres --> Airflow[Airflow DAG Scheduler]
+    Postgres --> Superset[Superset BI Dashboard]
 
-    subgraph AWS
-        AirflowScheduler
-        SecretsManager[AWS Secrets Manager]
+    subgraph Infrastructure
+        Superset
+        Traefik[Traefik Reverse Proxy]
+        Authelia[Authelia (SSO/Auth)]
     end
+```
+
+---
+
+## 🔐 Infrastructure: Superset + Authelia + Traefik
+
+```mermaid
+graph LR;
+    user[User Browser] --> https[HTTPS Request]
+    https --> Traefik
+    Traefik --> Authelia
+    Authelia -->|Authenticated| Superset
+    Authelia -->|Login Redirect| LoginPortal[Authelia Login Portal]
+    Superset --> DB[(PostgreSQL Metadata & Data DB)]
 ```
 
 ---
 
 ## ⚙️ Tech Stack
 
-| Tool        | Purpose                        |
-|-------------|--------------------------------|
-| Python      | Data ingestion, transformation |
-| Snowflake   | Data warehousing               |
-| Airflow     | Orchestration + Scheduling     |
-| Tableau     | Data visualization             |
-| AWS S3      | Backup + archival storage      |
-| Secrets Manager | Secure credentials         |
+| Tool        | Purpose                           |
+|-------------|-----------------------------------|
+| Python      | ETL scripts, data transformation  |
+| PostgreSQL  | Primary data + metadata storage   |
+| Superset    | BI dashboard & visualizations     |
+| Airflow     | Workflow orchestration (ETL jobs) |
+| Docker      | Containerized local deployment    |
+| Traefik     | Reverse proxy, SSL termination    |
+| Authelia    | Authentication middleware (SSO)   |
 
 ---
 
@@ -58,18 +76,25 @@ graph TD;
 ```
 fda-recall-dashboard/
 │
-├── dags/
-│   └── fda_recall_dag.py          # Airflow DAG for daily pipeline
-├── etl/
-│   ├── fetch_fda_data.py          # Python script to fetch & clean data
-│   └── transform_to_snowflake.py  # Script to load into Snowflake
-├── sql/
-│   ├── create_tables.sql          # Snowflake table DDLs
-│   └── quality_checks.sql         # Data validation queries
-├── tableau/
-│   └── dashboard.twbx             # Packaged Tableau workbook
+├── dags/                           
+│   └── fda_pipeline_dag.py           # Airflow DAG for Daily Pipeline
+├── etl/                            
+│   ├── fetch_fda_data.py           # Pulls FDA Data
+│   └── load_to_postgres.py         # Loads data to PostgreSQL
+│   └── clean_data.py               # Cleans FDA Data
+├── sql/                            
+│   ├── create_tables.sql           # PostgreSQL table definitions
+├── superset/                         
+│   ├── superset-compose.yaml       # Superset + Traefik + Authelia setup
+│   └── superset_config.py          # Secure config (SECRET_KEY, DB URI)
+├── airflow/
+│   ├── airflow-compose.yml         # Airflow stack (webserver, scheduler, etc.)
+│   ├── dags/                      # DAG files
+│   └── requirements.txt           # Custom Airflow Python deps
+├── tableau/                        
+│   └── dashboard.twbx
 ├── screenshots/
-│   └── fda-dashboard-preview.png  # Preview image for README
+│   └── fda-dashboard-preview.png
 └── README.md
 ```
 
@@ -77,54 +102,113 @@ fda-recall-dashboard/
 
 ## 🧠 Use Cases
 
-- Regulatory teams monitoring **real-time drug recall alerts**
-- Pharmaceutical companies tracking **product-level issues**
-- Internal compliance teams building **recall response workflows**
-
----
-
-## 🛡️ Security & Compliance
-
-- Secrets (Snowflake credentials, API keys) are stored securely using **AWS Secrets Manager**
-- Data is not stored permanently unless approved via Snowflake retention policies
+- Monitor **drug recall alerts** in real-time from FDA
+- Track **product-level safety issues** across manufacturers
+- Build **internal dashboards** for QA, compliance, or regulatory
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Clone the repo
+### 1. Clone the repository
 ```bash
 git clone https://github.com/your-username/fda-recall-dashboard.git
-cd fda-recall-dashboard
+cd fda-recall-dashboard/superset
 ```
-
-### 2. Set up Python environment
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Configure credentials
-Store Snowflake + API credentials securely in AWS Secrets Manager or use `.env` during dev.
-
-### 4. Run the ETL
-```bash
-python etl/fetch_fda_data.py
-python etl/transform_to_snowflake.py
-```
-
-### 5. Schedule with Airflow
-Load the DAG from `dags/` into your Airflow instance.
 
 ---
 
-## 📢 Credits
+## 🐳 Superset + Traefik + Authelia Setup
 
-Built by a Data Engineer passionate about building useful healthcare tools and solving real-world data chaos 💊
+### 1. Navigate to the `superset/` directory
+```bash
+cd superset
+```
+
+### 2. Configure environment
+
+Update:
+- `superset_config.py`: Set a secure `SECRET_KEY` and PostgreSQL URI
+- `authelia/configuration.yml`: Define your user, password, and authentication strategy
+
+### 3. Launch Superset stack
+```bash
+docker-compose up -d
+```
+
+### 4. Create Superset Admin
+```bash
+docker exec -it superset superset fab create-admin \
+  --username admin \
+  --firstname Superset \
+  --lastname Admin \
+  --email admin@yourdomain.com \
+  --password yourStrongPassword
+```
+
+### 5. Initialize Superset
+```bash
+docker exec -it superset superset db upgrade
+docker exec -it superset superset init
+```
+
+> Access the dashboard at `https://superset.tardisonline.in` (Traefik will route via Authelia)
+
+---
+
+## 🎯 Airflow Setup
+
+### 1. Navigate to the `airflow/` directory
+```bash
+cd airflow
+```
+
+### 2. Set up Airflow environment
+
+Copy example environment file:
+```bash
+cp .env.example .env
+```
+
+You can adjust PostgreSQL URI and Airflow configs in `.env`.
+
+### 3. Launch Airflow stack
+```bash
+docker-compose up -d
+```
+
+### 4. Initialize the database
+```bash
+docker-compose run airflow-webserver airflow db init
+```
+
+### 5. Create Airflow admin user
+```bash
+docker-compose run airflow-webserver airflow users create \
+    --username admin \
+    --password yourStrongPassword \
+    --firstname Admin \
+    --lastname User \
+    --role Admin \
+    --email admin@yourdomain.com
+```
+
+### 6. Access Airflow UI
+Go to: [http://localhost:8080](http://localhost:8080)
+
+---
+
+## 🛡️ Security Notes
+
+- All dashboard access is authenticated via Authelia (2FA supported)
+- Reverse proxy is TLS-secured via Traefik
+- Metadata and recall data are stored in PostgreSQL only (no external storage)
 
 ---
 
 ## 📬 Contact
 
-Feel free to reach out via [Upwork](https://www.upwork.com/freelancers/~018057852a30b567fe?mp_source=share), [LinkedIn](https://www.linkedin.com/in/gopinath-sekar/), or [email](mailto:admin@thearchive.dev) if you’d like a similar solution built for your business.
+Built by [Gopinath Sekar](https://www.linkedin.com/in/gopinath-sekar/), a data engineer obsessed with solving healthcare data chaos 💊
 
-```
+> 📧 [admin@thearchive.dev](mailto:admin@thearchive.dev)  
+> 🌐 [Upwork Profile](https://www.upwork.com/freelancers/~018057852a30b567fe)
