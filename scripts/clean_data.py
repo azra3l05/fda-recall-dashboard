@@ -1,28 +1,41 @@
 import pandas as pd
 from pathlib import Path
+import time
+import logging
+from logging.handlers import TimedRotatingFileHandler
 from datetime import datetime
+import os
 
-def clean_fda_data(input_path=None, output_path=None, **kwargs):
-    # Generate current date string if not passed via Airflow
+# Setup logging
+LOG_DIR = "logs"
+os.makedirs(LOG_DIR, exist_ok=True)
+
+log_handler = TimedRotatingFileHandler(
+    filename=os.path.join(LOG_DIR, "clean_data.log"),
+    when='W0',  # Weekly rotation on Mondays
+    interval=1,
+    backupCount=4
+)
+log_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[log_handler, logging.StreamHandler()]
+)
+
+def clean_fda_data(input_path="data/raw/fda_recall_{date_str}.csv", output_path="data/cleaned/fda_recall_cleaned_{date_str}.csv"):
+    start_time = time.time()
     date_str = datetime.now().strftime("%Y%m%d")
-
-    if input_path is None:
-        input_path = f"data/raw/fda_recall_{date_str}.csv"
-
-    if output_path is None:
-        output_path = f"data/cleaned/fda_recall_cleaned_{date_str}.csv"
-
-    input_path = Path(input_path)
-    output_path = Path(output_path)
+    input_path = Path(str(input_path).format(date_str=date_str))
+    output_path = Path(str(output_path).format(date_str=date_str))
 
     if not input_path.exists():
-        print(f"[ERROR] File not found: {input_path}")
+        logging.error(f"❌ File not found: {input_path}")
         return 0
 
-    # Load the CSV
-    print(f"[INFO] Reading file: {input_path}")
+    logging.info(f"📖 Reading file: {input_path}")
     df = pd.read_csv(input_path)
-    print("[DEBUG] Columns in input:", df.columns.tolist())
+    logging.debug(f"🔍 Columns in input: {df.columns.tolist()}")
 
     # Convert date columns to datetime
     date_columns = ["report_date", "recall_initiation_date", "event_date_started", "event_date_ended", "termination_date"]
@@ -30,8 +43,7 @@ def clean_fda_data(input_path=None, output_path=None, **kwargs):
         if col in df.columns:
             df[col] = pd.to_datetime(
                 df[col].dropna().apply(lambda x: str(int(x)) if pd.notna(x) else x),
-                format="%Y%m%d",
-                errors="coerce"
+                format="%Y%m%d", errors="coerce"
             )
 
     # Fill missing values
@@ -44,25 +56,29 @@ def clean_fda_data(input_path=None, output_path=None, **kwargs):
     df.fillna(value=fill_values, inplace=True)
 
     # Remove duplicates
+    before = len(df)
     df.drop_duplicates(inplace=True)
+    logging.info(f"🧹 Removed {before - len(df)} duplicate rows")
 
     # Drop rows missing required fields
     required_columns = ["recall_number", "product_type"]
     df.dropna(subset=required_columns, inplace=True)
 
-    # Save the cleaned file
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
+    logging.info(f"✅ Cleaned data saved to {output_path}")
+    logging.info(f"📊 Final row count: {len(df)}")
 
-    print(f"[SUCCESS] Cleaned data saved to {output_path}")
-    print(f"🔢 Rows after cleaning: {len(df)}")
-    
-    # Push to XCom if inside Airflow
-    if 'ti' in kwargs:
-        kwargs['ti'].xcom_push(key='cleaned_data_path', value=str(output_path))
+    # Cleanup input file
+    try:
+        input_path.unlink()
+        logging.info(f"🧽 Deleted raw input file: {input_path}")
+    except Exception as e:
+        logging.warning(f"⚠️ Could not delete input file: {input_path}. Reason: {e}")
 
+    duration = time.time() - start_time
+    logging.info(f"⏱️ Cleaning completed in {duration:.2f} seconds")
     return len(df)
 
-# ✅ Call the function
 if __name__ == "__main__":
     clean_fda_data()

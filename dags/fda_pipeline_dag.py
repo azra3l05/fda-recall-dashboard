@@ -32,7 +32,7 @@ with DAG(
     )
 
     load_data = PythonOperator(
-        task_id='load_to_snowflake',
+        task_id='load_to_postgres',
         python_callable=load_data
     )
 
