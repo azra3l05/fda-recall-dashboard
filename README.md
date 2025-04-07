@@ -77,20 +77,20 @@ graph LR;
 fda-recall-dashboard/
 │
 ├── dags/                           
-│   └── fda_pipeline_dag.py           # Airflow DAG for Daily Pipeline
+│   └── fda_pipeline_dag.py             # Airflow DAG for Daily Pipeline
 ├── etl/                            
-│   ├── fetch_fda_data.py           # Pulls FDA Data
-│   └── load_to_postgres.py         # Loads data to PostgreSQL
-│   └── clean_data.py               # Cleans FDA Data
+│   ├── fetch_fda_data.py               # Pulls FDA Data
+│   └── load_to_postgres.py             # Loads data to PostgreSQL
+│   └── clean_data.py                   # Cleans FDA Data
 ├── sql/                            
-│   ├── create_tables.sql           # PostgreSQL table definitions
+│   ├── create_tables.sql               # PostgreSQL table definitions
 ├── superset/                         
-│   ├── superset-compose.yaml       # Superset + Traefik + Authelia setup
-│   └── superset_config.py          # Secure config (SECRET_KEY, DB URI)
+│   ├── superset-compose.yaml           # Superset + Traefik + Authelia setup
+│   └── superset_config.py              # Secure config (SECRET_KEY, DB URI)
 ├── airflow/
-│   ├── airflow-compose.yml         # Airflow stack (webserver, scheduler, etc.)
-│   ├── dags/                      # DAG files
-│   └── requirements.txt           # Custom Airflow Python deps
+│   ├── airflow-compose.yml             # Airflow stack (webserver, scheduler, etc.)
+│   ├── dags/                           # DAG files
+│   └── requirements.txt                # Custom Airflow Python deps
 ├── tableau/                        
 │   └── dashboard.twbx
 ├── screenshots/
