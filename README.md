@@ -11,7 +11,6 @@ An end-to-end data engineering and analytics solution for real-time pharmaceutic
 - 📊 Modern self-hosted **Superset Dashboard** (Dockerized)
 - 🌐 Secured with **Traefik**, **Authelia SSO**, and HTTPS via Let's Encrypt
 - 🧠 Incident Detection & Scoring for recall anomalies
-- 🔐 AWS Secrets Manager for secure credential management
 - 🐘 External PostgreSQL used as Superset's metadata DB
 - 🐳 Fully containerized using **Docker Compose**
 
