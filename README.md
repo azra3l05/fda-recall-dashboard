@@ -37,7 +37,7 @@ graph TD;
     subgraph Infrastructure
         Superset
         Traefik[Traefik Reverse Proxy]
-        Authelia[Authelia (SSO/Auth)]
+        Authelia[Authelia SSO/Auth]
     end
 ```
 
