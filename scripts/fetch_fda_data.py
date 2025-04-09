@@ -1,89 +1,113 @@
 import requests
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
+import sys
 import time
 import logging
 from logging.handlers import TimedRotatingFileHandler
+from urllib.parse import quote_plus
 
+# Include notifier path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from notifier import send_discord_notification
 
-# Logging setup
-LOG_DIR = "logs"
-os.makedirs(LOG_DIR, exist_ok=True)
+# === Logging setup ===
+def setup_logger(log_file_name: str, logger_name="fetch_fda_logger"):
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.INFO)
 
-log_handler = TimedRotatingFileHandler(
-    filename=os.path.join(LOG_DIR, "fetch_fda_data.log"),
-    when='W0',  # Rotate every Monday
-    interval=1,
-    backupCount=4
-)
-log_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    if not logger.handlers:
+        log_dir = "/opt/airflow/logs"
+        os.makedirs(log_dir, exist_ok=True)
 
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=[log_handler, logging.StreamHandler()]
-)
+        file_handler = TimedRotatingFileHandler(
+            filename=os.path.join(log_dir, log_file_name),
+            when="midnight", interval=1, backupCount=7
+        )
+        file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+        logger.addHandler(file_handler)
+
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+        logger.addHandler(console_handler)
+
+    return logger
+
+logger = setup_logger("fetch_fda_data.log")
 
 # Output directories
-RAW_DIR = "data/raw"
-CLEANED_DIR = "data/cleaned"
+RAW_DIR = "/opt/airflow/data/raw"
 os.makedirs(RAW_DIR, exist_ok=True)
-os.makedirs(CLEANED_DIR, exist_ok=True)
 
-API_URL = "https://api.fda.gov/food/enforcement.json"
-LIMIT = 1000  # adjust if needed
+API_URL = "https://api.fda.gov/drug/enforcement.json"
+LIMIT = 1000  # OpenFDA max limit per request
+
+def generate_month_ranges(start_year, start_month, end_year, end_month):
+    current = datetime(start_year, start_month, 1)
+    end = datetime(end_year, end_month, 1)
+    while current <= end:
+        next_month = (current.replace(day=28) + timedelta(days=4)).replace(day=1)
+        yield current.strftime("%Y%m%d"), (next_month - timedelta(days=1)).strftime("%Y%m%d")
+        current = next_month
 
 def fetch_fda_data():
+    send_discord_notification("🚀 FDA data fetch job started!")
     start_time = time.time()
-    logging.info("🚀 Starting FDA data fetch")
+    logging.info("🚀 Starting FDA historical data fetch")
+    all_data = []
 
-    all_results = []
-    skip = 0
+    for from_date, to_date in generate_month_ranges(2020, 1, 2025, 3):
+        logging.info(f"📅 Fetching data from {from_date} to {to_date}")
+        skip = 0
 
-    while True:
-        logging.info(f"📦 Fetching records {skip} to {skip + LIMIT}...")
-        params = {"limit": LIMIT, "skip": skip}
-        try:
-            response = requests.get(API_URL, params=params)
-            response.raise_for_status()
-            data = response.json()
+        while True:
+            search_query = f"report_date:[{from_date} TO {to_date}]"
+            encoded_query = quote_plus(search_query, safe=":[]")  # Keep :, [, ]
+            url = f"{API_URL}?search={encoded_query}&limit={LIMIT}&skip={skip}"
 
-            results = data.get("results", [])
-            if not results:
+            try:
+                response = requests.get(url)
+                if response.status_code == 400:
+                    logging.warning(f"📭 No more data for {from_date} to {to_date} at skip {skip}")
+                    break
+                response.raise_for_status()
+                results = response.json().get("results", [])
+
+                if not results:
+                    logging.info(f"📭 No results for {from_date} to {to_date} at skip {skip}")
+                    break
+
+                all_data.extend(results)
+                logging.info(f"📦 Fetched {len(results)} records from {from_date} to {to_date}, skip {skip}")
+                skip += LIMIT
+            except requests.exceptions.HTTPError as http_err:
+                # send_discord_notification(f"❌ HTTP error {response.status_code} for {from_date}-{to_date}: {http_err}")
+                logging.exception("❌ HTTP error")
+                break
+            except Exception as e:
+                send_discord_notification(f"❌ Failed to fetch {from_date}-{to_date}: {e}")
+                logging.exception("❌ General error")
                 break
 
-            all_results.extend(results)
-            skip += LIMIT
-        except Exception as e:
-            logging.exception("❌ Failed to fetch data from FDA API")
-            break
-
-    if not all_results:
-        logging.warning("⚠️ No data fetched. Exiting.")
+    if not all_data:
+        send_discord_notification("⚠️ No data fetched from FDA")
+        logging.warning("⚠️ No data fetched.")
         return
 
-    # Save raw JSON
+    # Save output
     date_str = datetime.now().strftime("%Y%m%d")
     raw_path = os.path.join(RAW_DIR, f"fda_recall_raw_{date_str}.json")
-    with open(raw_path, "w") as f:
-        pd.DataFrame(all_results).to_json(f, orient="records", lines=True)
-    logging.info(f"💾 Raw data saved to {raw_path}")
+    df = pd.DataFrame(all_data)
+    df.to_json(raw_path, orient="records", lines=True)
+    df.to_csv(raw_path.replace(".json", ".csv"), index=False)
 
-    # Clean and save CSV
-    df = pd.DataFrame(all_results)
-    cleaned_path = os.path.join(CLEANED_DIR, f"fda_recall_cleaned_{date_str}.csv")
-    df.to_csv(cleaned_path, index=False)
-    logging.info(f"🧼 Cleaned data saved to {cleaned_path} with {len(df)} rows")
-
-    # Cleanup raw file
-    try:
-        os.remove(raw_path)
-        logging.info(f"🧹 Deleted raw file: {raw_path}")
-    except Exception as e:
-        logging.warning(f"⚠️ Could not delete raw file: {raw_path}")
+    send_discord_notification(f"✅ Fetched {len(df)} records from {from_date} to {to_date} and saved to CSV.")
+    logging.info(f"✅ Fetched {len(df)} total records and saved to {raw_path}")
 
     duration = time.time() - start_time
-    logging.info(f"✅ Fetch and clean complete in {duration:.2f} seconds")
+    logging.info(f"⏱️ Completed in {duration:.2f} seconds.")
+    send_discord_notification(f"⏱️ Execution duration: {duration:.2f} seconds")
 
 if __name__ == "__main__":
     fetch_fda_data()
