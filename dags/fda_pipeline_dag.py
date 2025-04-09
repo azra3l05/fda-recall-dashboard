@@ -10,7 +10,7 @@ from scripts.load_to_postgres import load_data
 default_args = {
     'owner': 'azra3l',
     'start_date': datetime(2024, 1, 1),
-    'retries': 1,
+    'retries': 0,
 }
 
 with DAG(
